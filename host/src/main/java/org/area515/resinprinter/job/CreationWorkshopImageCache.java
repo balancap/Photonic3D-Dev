@@ -41,6 +41,7 @@ public class CreationWorkshopImageCache {
 
     private BufferedImage loadImageFile(int sliceIndex) throws IOException {
         File imageFile = getImageFile(sliceIndex);
+        logger.info("Loading image from file: {}.", imageFile.getName());
         BufferedImage image = ImageIO.read(imageFile);
         return image;
     }
@@ -61,6 +62,7 @@ public class CreationWorkshopImageCache {
     public BufferedImage getCachedOrLoadImage(int sliceIndex) throws IOException {
         BufferedImage image;
         cacheLock.lock();
+        logger.info("Get or load cached image with index: {}.", sliceIndex);
         try {
             if (cache.containsKey(sliceIndex))
             {

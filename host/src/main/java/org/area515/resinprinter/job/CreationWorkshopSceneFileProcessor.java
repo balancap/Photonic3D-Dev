@@ -25,6 +25,8 @@ import java.util.zip.ZipFile;
 
 import javax.imageio.ImageIO;
 
+import com.jcraft.jsch.Buffer;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -172,9 +174,11 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 							String imageNumber = String.format("%0" + padLength + "d", incoming);
 							String imageFilename = FilenameUtils.removeExtension(gCodeFile.getName()) + imageNumber + ".png";
 
-							File imageFile = new File(gCodeFile.getParentFile(), imageFilename);
-							logger.info("Load picture from file: {}", imageFilename);
-							BufferedImage newImage = ImageIO.read(imageFile);
+							// File imageFile = new File(gCodeFile.getParentFile(), imageFilename);
+							logger.info("Load cached picture from file: {}", imageFilename);
+							// BufferedImage newImage = ImageIO.read(imageFile);
+							BufferedImage newImage = imageCache.getCachedOrLoadImage(incoming);
+
 							logger.info("Apply picture transform: {}", imageFilename);
 							newImage = applyImageTransforms(aid, data.getScriptEngine(), newImage);
 							// applyBulbMask(aid, (Graphics2D)newImage.getGraphics(), newImage.getWidth(), newImage.getHeight());
