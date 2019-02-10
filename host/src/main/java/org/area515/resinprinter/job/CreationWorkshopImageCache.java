@@ -3,7 +3,7 @@ package org.area515.resinprinter.job;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-
+import java.util.function.UnaryOperator;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -24,16 +24,20 @@ public class CreationWorkshopImageCache extends Thread {
     private HashMap<Integer, BufferedImage> cache = new HashMap<Integer, BufferedImage>();
     private ReentrantLock cacheLock = new ReentrantLock(true);
 
+    // Image transform operation, after loading.
+    UnaryOperator<BufferedImage> imageTransformOp;
+
     // Image filename structure
     private File parentFile;
     private String baseFilename;
     private String extension = new String(".png");
     private int padLength;
 
-    public CreationWorkshopImageCache(File parentFile, String baseFilename, int padLength) {
+    public CreationWorkshopImageCache(File parentFile, String baseFilename, int padLength, UnaryOperator<BufferedImage> imageTransformOp) {
         this.parentFile = parentFile;
         this.baseFilename = baseFilename;
         this.padLength = padLength;
+        this.imageTransformOp = imageTransformOp;
     }
 
     @Override
@@ -70,18 +74,17 @@ public class CreationWorkshopImageCache extends Thread {
         return imageFile;
     }
 
-    private BufferedImage loadImageFile(int sliceIndex) {
+    private BufferedImage loadImageAndTransform(int sliceIndex) {
         File imageFile = getImageFile(sliceIndex);
-        logger.info("Loading image from file: {}.", imageFile.getName());
+        logger.info("Loading & transforming image from file: {}.", imageFile.getName());
         BufferedImage image;
         try {
             image = ImageIO.read(imageFile);
+            image = imageTransformOp.apply(image);
         }
         catch(IOException e) {
             image = null;
             logger.error("IO error while loading image from file: {}.", imageFile.getName());
-        }
-        finally {
         }
         return image;
     }
@@ -91,7 +94,7 @@ public class CreationWorkshopImageCache extends Thread {
         try {
             if (!cache.containsKey(sliceIndex))
             {
-                BufferedImage image = loadImageFile(sliceIndex);
+                BufferedImage image = loadImageAndTransform(sliceIndex);
                 cache.put(sliceIndex, image);
             }
         } finally {
@@ -111,7 +114,7 @@ public class CreationWorkshopImageCache extends Thread {
                 cache.remove(sliceIndex);
             }
             else {
-                image = loadImageFile(sliceIndex);
+                image = loadImageAndTransform(sliceIndex);
             }
             this.lastSliceIndex.set(sliceIndex);
         } finally {

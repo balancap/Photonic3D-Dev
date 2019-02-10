@@ -18,6 +18,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -135,11 +136,22 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 			Pattern liftDistancePattern = Pattern.compile("\\s*;\\s*\\(?\\s*Lift\\s*Distance\\s*=\\s*([\\d\\.]+)\\s*(?:[Mm]{2})?\\s*\\)?\\s*", Pattern.CASE_INSENSITIVE);
 			Pattern sliceCountPattern = Pattern.compile("\\s*;\\s*Number\\s*of\\s*Slices\\s*=\\s*(\\d+)\\s*", Pattern.CASE_INSENSITIVE);
 
-			// Image cache automatically pre-loading images.
+			// Transform unary operator on buffered image, to pass to cache thread.
+			UnaryOperator<BufferedImage> imageTransformOp = image -> {
+				BufferedImage transformedImage = null;
+				try {
+					RenderedData data = aid.cache.getOrCreateIfMissing(Boolean.TRUE);	// ?
+					transformedImage = applyImageTransforms(aid, data.getScriptEngine(), image);
+				} catch(Exception e) {
+					transformedImage = null;
+				}
+				return transformedImage;
+			};
+			// Image cache object, automatically pre-loading and transforming images.
 			String baseFilename = FilenameUtils.removeExtension(gCodeFile.getName());
 			int padLength = determinePadLength(gCodeFile);
-			imageCache = new CreationWorkshopImageCache(gCodeFile.getParentFile(), baseFilename, padLength);
-			// Start caching thread.
+			imageCache = new CreationWorkshopImageCache(gCodeFile.getParentFile(), baseFilename, padLength, imageTransformOp);
+			// Start image caching thread.
 			imageCache.start();
 
 			//We can't set these values, that means they aren't set to helpful values when this job starts
@@ -168,27 +180,21 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 							}
 							startOfLastImageDisplay = System.currentTimeMillis();
 
-							logger.info("Setup picture buffer.");
 							RenderedData data = aid.cache.getOrCreateIfMissing(Boolean.TRUE);
 							BufferedImage oldImage = data.getPrintableImage();
-							int incoming = Integer.parseInt(matcher.group(1));
-							//printJob.setCurrentSlice(incoming);
-							String imageNumber = String.format("%0" + padLength + "d", incoming);
+							int sliceIndex = Integer.parseInt(matcher.group(1));
+							//printJob.setCurrentSlice(sliceIndex);
+							String imageNumber = String.format("%0" + padLength + "d", sliceIndex);
 							String imageFilename = FilenameUtils.removeExtension(gCodeFile.getName()) + imageNumber + ".png";
 
 							logger.info("Load cached picture from file: {}", imageFilename);
-							// BufferedImage newImage = ImageIO.read(imageFile);
-							BufferedImage newImage = imageCache.getCachedOrLoadImage(incoming);
-
-							logger.info("Apply picture transform: {}", imageFilename);
-							newImage = applyImageTransforms(aid, data.getScriptEngine(), newImage);
+							BufferedImage newImage = imageCache.getCachedOrLoadImage(sliceIndex);
 							// applyBulbMask(aid, (Graphics2D)newImage.getGraphics(), newImage.getWidth(), newImage.getHeight());
-							logger.info("Set printable picture: {}", imageFilename);
 							data.setPrintableImage(newImage);
-
-							//Notify the client that the printJob has increased the currentSlice
+							// Notify the client that the printJob has increased the currentSlice
 							NotificationManager.jobChanged(printer, printJob);
 
+							// Call display driver.
 							logger.info("Display picture on screen: {}", imageFilename);
 							printer.showImage(data.getPrintableImage(), true);
 
