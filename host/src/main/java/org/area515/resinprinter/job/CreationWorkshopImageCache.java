@@ -1,6 +1,7 @@
 package org.area515.resinprinter.job;
 
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 import java.awt.image.BufferedImage;
@@ -15,12 +16,15 @@ import org.apache.logging.log4j.Logger;
 public class CreationWorkshopImageCache extends Thread {
     private static final Logger logger = LogManager.getLogger();
 
-    private int lastSliceIndex = 0;
-    private int cacheMaxSize = 2;
+    // Last slice index, starting at zero.
+    private AtomicInteger lastSliceIndex = new AtomicInteger(0);
+    // Max. number of images cached. WARNING: not too big to avoid Out Of Memory!
+    private AtomicInteger cacheMaxSize = new AtomicInteger(2);
     // Cache, with image index as key.
     private HashMap<Integer, BufferedImage> cache = new HashMap<Integer, BufferedImage>();
     private ReentrantLock cacheLock = new ReentrantLock(true);
 
+    // Image filename structure
     private File parentFile;
     private String baseFilename;
     private String extension = new String(".png");
@@ -34,12 +38,12 @@ public class CreationWorkshopImageCache extends Thread {
 
     @Override
     public void run() {
-        int cacheSliceIndex = lastSliceIndex;
+        int cacheSliceIndex = lastSliceIndex.get();
         // Main thread loop adding image to the cache.
-        while (cacheMaxSize > 0) {
+        while (cacheMaxSize.get() > 0) {
             // Cache a new image if last slice index has increased.
-            if (cacheSliceIndex < lastSliceIndex + cacheMaxSize) {
-                logger.info("Caching image with index: {}.", cacheSliceIndex);
+            if (cacheSliceIndex < lastSliceIndex.get() + cacheMaxSize.get()) {
+                logger.info("Thread caching image with index: {}.", cacheSliceIndex);
                 addImageToCache(cacheSliceIndex);
                 cacheSliceIndex++;
             }
@@ -50,6 +54,13 @@ public class CreationWorkshopImageCache extends Thread {
             catch(Exception e) {
             }
         }
+        logger.info("Close image caching thread.");
+    }
+
+    public void close() throws InterruptedException {
+        // Close caching thread.
+        cacheMaxSize.set(0);
+        this.join();
     }
 
     private File getImageFile(int sliceIndex) {
@@ -102,7 +113,7 @@ public class CreationWorkshopImageCache extends Thread {
             else {
                 image = loadImageFile(sliceIndex);
             }
-            this.lastSliceIndex = sliceIndex;
+            this.lastSliceIndex.set(sliceIndex);
         } finally {
             cacheLock.unlock();
         }

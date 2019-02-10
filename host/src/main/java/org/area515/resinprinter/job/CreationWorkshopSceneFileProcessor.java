@@ -163,7 +163,7 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 							printer.waitForPauseIfRequired();
 						} else {
 							if (startOfLastImageDisplay > -1) {
-					//printJob.setCurrentSliceTime(System.currentTimeMillis() - startOfLastImageDisplay);
+								//printJob.setCurrentSliceTime(System.currentTimeMillis() - startOfLastImageDisplay);
 								printJob.addNewSlice(System.currentTimeMillis() - startOfLastImageDisplay, null);
 							}
 							startOfLastImageDisplay = System.currentTimeMillis();
@@ -176,7 +176,6 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 							String imageNumber = String.format("%0" + padLength + "d", incoming);
 							String imageFilename = FilenameUtils.removeExtension(gCodeFile.getName()) + imageNumber + ".png";
 
-							// File imageFile = new File(gCodeFile.getParentFile(), imageFilename);
 							logger.info("Load cached picture from file: {}", imageFilename);
 							// BufferedImage newImage = ImageIO.read(imageFile);
 							BufferedImage newImage = imageCache.getCachedOrLoadImage(incoming);
@@ -281,6 +280,9 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 					stream.close();
 				} catch (IOException e) {
 				}
+			}
+			if (imageCache != null) {
+				imageCache.close();
 			}
 			aid.cache.clearCache(Boolean.TRUE);
 			clearDataAid(printJob);
