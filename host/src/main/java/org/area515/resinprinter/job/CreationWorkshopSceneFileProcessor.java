@@ -45,7 +45,7 @@ import se.sawano.java.text.AlphanumericComparator;
 
 public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcessor<Object,Object> implements Previewable {
 	private static final Logger logger = LogManager.getLogger();
-	private CreationWorkshopImageCache imageCache;
+	private CreationWorkshopImageCache imageCache = null;
 
 	@Override
 	public String[] getFileExtensions() {
@@ -139,6 +139,8 @@ public class CreationWorkshopSceneFileProcessor extends AbstractPrintFileProcess
 			String baseFilename = FilenameUtils.removeExtension(gCodeFile.getName());
 			int padLength = determinePadLength(gCodeFile);
 			imageCache = new CreationWorkshopImageCache(gCodeFile.getParentFile(), baseFilename, padLength);
+			// Start caching thread.
+			imageCache.start();
 
 			//We can't set these values, that means they aren't set to helpful values when this job starts
 			//data.printJob.setExposureTime(data.inkConfiguration.getExposureTime());
